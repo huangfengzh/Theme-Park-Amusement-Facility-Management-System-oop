@@ -44,8 +44,7 @@ public class Employee extends Person {
         return "员工";
     }
 
-    // 重写toString
-    @Override
+    // 重写toString（移除@Override注解）
     public String toString() {
         return "员工ID: " + getId() + ", 姓名: " + getName() + ", 年龄: " + getAge() +
                 ", 职位: " + position + ", 排班: " + workStartTime + "-" + workEndTime;
