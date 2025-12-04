@@ -189,3 +189,89 @@ public class Ride implements RideInterface {
                 index++;
             }
         }
+    // ------------------------------ Part4：游玩历史管理 ------------------------------
+    @Override
+    public void addToRideHistory(Visitor visitor) {
+        if (visitor != null) {
+            rideHistory.add(visitor);
+            System.out.println("访客 " + visitor.getName() + " 已加入 " + rideName + " 游玩历史！");
+        } else {
+            System.out.println("添加失败：访客信息为空！");
+        }
+    }
+
+    @Override
+    public void removeFromRideHistory(String visitorId) {
+        boolean removed = false;
+        Iterator<Visitor> iterator = rideHistory.iterator();
+        while (iterator.hasNext()) {
+            Visitor v = iterator.next();
+            if (v.getVisitorId().equals(visitorId)) {
+                iterator.remove();
+                removed = true;
+                System.out.println("访客 " + v.getName() + " 已从 " + rideName + " 游玩历史移除！");
+                break;
+            }
+        }
+        if (!removed) {
+            System.out.println("未找到访客ID为 " + visitorId + " 的游玩记录！");
+        }
+    }
+
+    @Override
+    public void printRideHistory() {
+        if (rideHistory.isEmpty()) {
+            System.out.println(rideName + " 暂无游玩历史！");
+            return;
+        }
+        // 按访客姓名排序（Part4要求：排序功能）
+        Collections.sort(rideHistory, Comparator.comparing(Visitor::getName));
+        
+        System.out.println("\n" + rideName + " 游玩历史（共" + rideHistory.size() + "条）：");
+        int index = 1;
+        for (Visitor v : rideHistory) {
+            System.out.println("  " + index + ". " + v);
+            index++;
+        }
+    }
+
+    // ------------------------------ Part5：运行周期管理 ------------------------------
+    @Override
+    public void runCycle() {
+        if (!"运行中".equals(status)) {
+            System.out.println(rideName + " 当前状态为「" + status + "」，无法运行周期！");
+            return;
+        }
+
+        numOfCycles++; // 运行周期数+1
+        int currentRider = 0; // 本周期实际载客数
+        List<Visitor> currentCycleRiders = new ArrayList<>();
+
+        // 优先队列乘客先上车
+        while (!priorityQueue.isEmpty() && currentRider < maxRider) {
+            Visitor v = priorityQueue.poll();
+            currentCycleRiders.add(v);
+            addToRideHistory(v); // 加入游玩历史
+            currentRider++;
+        }
+        // 普通队列乘客上车（补满maxRider）
+        while (!normalQueue.isEmpty() && currentRider < maxRider) {
+            Visitor v = normalQueue.poll();
+            currentCycleRiders.add(v);
+            addToRideHistory(v); // 加入游玩历史
+            currentRider++;
+        }
+
+        // 输出本周期运行信息
+        System.out.println("\n【" + rideName + " 第" + numOfCycles + "周期运行】");
+        System.out.println("运行时长：" + cycleDuration);
+        System.out.println("本周期载客：" + currentRider + "人（最大：" + maxRider + "人）");
+        if (!currentCycleRiders.isEmpty()) {
+            System.out.println("乘客列表：");
+            for (Visitor v : currentCycleRiders) {
+                System.out.println("  - " + v.getName() + "（" + v.getTicketType() + "）");
+            }
+        } else {
+            System.out.println("本周期无乘客！");
+        }
+    }
