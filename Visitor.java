@@ -68,16 +68,14 @@ public class Visitor extends Person {
         return "访客";
     }
 
-    // 重写toString（包含消费和时长）
-    @Override
+    // 重写toString（包含消费和时长，移除@Override注解）
     public String toString() {
         return "ID: " + getId() + ", 姓名: " + getName() + ", 年龄: " + getAge() +
                 ", 门票类型: " + ticketType + ", 访问日期: " + visitDate +
                 ", 消费: " + rideCost + "元, 时长: " + rideDuration;
     }
 
-    // 重写equals和hashCode（用于contains判断）
-    @Override
+    // 重写equals和hashCode（用于contains判断，移除@Override注解）
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
@@ -85,7 +83,6 @@ public class Visitor extends Person {
         return getId().equals(visitor.getId());
     }
 
-    @Override
     public int hashCode() {
         return getId().hashCode();
     }
