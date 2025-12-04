@@ -189,33 +189,40 @@ public class Ride implements RideInterface {
                 index++;
             }
         }
-    // ------------------------------ Part4：游玩历史管理 ------------------------------
+    }
+
+    // ------------------------------ Part4A：游玩历史管理 ------------------------------
     @Override
-    public void addToRideHistory(Visitor visitor) {
+    public void addVisitorToHistory(Visitor visitor) {
         if (visitor != null) {
             rideHistory.add(visitor);
-            System.out.println("访客 " + visitor.getName() + " 已加入 " + rideName + " 游玩历史！");
+            System.out.println("访客 " + visitor.getName() + " 已添加到 " + rideName + " 游玩历史！" +
+                    " 消费：" + visitor.getRideCost() + "元，时长：" + visitor.getRideDuration());
         } else {
             System.out.println("添加失败：访客信息为空！");
         }
     }
 
     @Override
-    public void removeFromRideHistory(String visitorId) {
-        boolean removed = false;
-        Iterator<Visitor> iterator = rideHistory.iterator();
-        while (iterator.hasNext()) {
-            Visitor v = iterator.next();
-            if (v.getVisitorId().equals(visitorId)) {
-                iterator.remove();
-                removed = true;
-                System.out.println("访客 " + v.getName() + " 已从 " + rideName + " 游玩历史移除！");
-                break;
-            }
+    public boolean checkVisitorFromHistory(Visitor visitor) {
+        if (visitor == null) {
+            System.out.println("查询失败：访客信息为空！");
+            return false;
         }
-        if (!removed) {
-            System.out.println("未找到访客ID为 " + visitorId + " 的游玩记录！");
+        boolean exists = rideHistory.contains(visitor);
+        if (exists) {
+            System.out.println("访客 " + visitor.getName() + " 曾游玩过 " + rideName + "！");
+        } else {
+            System.out.println("访客 " + visitor.getName() + " 未游玩过 " + rideName + "！");
         }
+        return exists;
+    }
+
+    @Override
+    public int numberOfVisitors() {
+        int count = rideHistory.size();
+        System.out.println(rideName + " 游玩历史总人数：" + count);
+        return count;
     }
 
     @Override
@@ -224,54 +231,172 @@ public class Ride implements RideInterface {
             System.out.println(rideName + " 暂无游玩历史！");
             return;
         }
-        // 按访客姓名排序（Part4要求：排序功能）
-        Collections.sort(rideHistory, Comparator.comparing(Visitor::getName));
-        
-        System.out.println("\n" + rideName + " 游玩历史（共" + rideHistory.size() + "条）：");
+        System.out.println("\n" + rideName + " 游玩历史（共" + rideHistory.size() + "人）：");
+        // 必须使用Iterator遍历（否则无分）
+        Iterator<Visitor> iterator = rideHistory.iterator();
         int index = 1;
-        for (Visitor v : rideHistory) {
-            System.out.println("  " + index + ". " + v);
+        while (iterator.hasNext()) {
+            Visitor visitor = iterator.next();
+            System.out.println(index + ". " + visitor);
             index++;
         }
     }
 
-    // ------------------------------ Part5：运行周期管理 ------------------------------
+    // ------------------------------ Part4B：游玩历史排序 ------------------------------
+    /**
+     * 使用Comparator对游玩历史进行排序
+     * @param comparator 自定义比较器
+     */
+    public void sortRideHistory(Comparator<Visitor> comparator) {
+        if (rideHistory.isEmpty()) {
+            System.out.println("游玩历史为空，无需排序！");
+            return;
+        }
+        Collections.sort(rideHistory, comparator);
+        System.out.println(rideName + " 游玩历史排序完成！");
+    }
+
+    // ------------------------------ Part5：运行游乐周期（含状态/排班校验） ------------------------------
     @Override
-    public void runCycle() {
+    public void runOneCycle() {
+        // 1. 校验设施状态
         if (!"运行中".equals(status)) {
-            System.out.println(rideName + " 当前状态为「" + status + "」，无法运行周期！");
+            System.out.println("运行失败：" + rideName + " 当前状态为【" + status + "】，无法运行！");
+            return;
+        }
+        // 2. 校验操作员是否在岗
+        if (operator == null || !operator.isOnDuty()) {
+            String msg = operator == null ? "未分配操作员" : "操作员" + operator.getName() + "未在排班时间内（" +
+                    operator.getWorkStartTime() + "-" + operator.getWorkEndTime() + "）";
+            System.out.println("运行失败：" + msg + "！");
+            return;
+        }
+        // 3. 校验队列是否为空
+        int totalQueueSize = priorityQueue.size() + normalQueue.size();
+        if (totalQueueSize == 0) {
+            System.out.println("运行失败：" + rideName + " 无排队访客！");
             return;
         }
 
-        numOfCycles++; // 运行周期数+1
-        int currentRider = 0; // 本周期实际载客数
-        List<Visitor> currentCycleRiders = new ArrayList<>();
+        System.out.println("\n" + rideName + " 开始运行第 " + (numOfCycles + 1) + " 周期（单周期最大乘客数：" + maxRider + "，时长：" + cycleDuration + "）！");
+        int ridersThisCycle = 0;
 
-        // 优先队列乘客先上车
-        while (!priorityQueue.isEmpty() && currentRider < maxRider) {
-            Visitor v = priorityQueue.poll();
-            currentCycleRiders.add(v);
-            addToRideHistory(v); // 加入游玩历史
-            currentRider++;
+        // 先从优先队列取访客
+        while (!priorityQueue.isEmpty() && ridersThisCycle < maxRider) {
+            addVisitorToHistory(priorityQueue.poll());
+            ridersThisCycle++;
         }
-        // 普通队列乘客上车（补满maxRider）
-        while (!normalQueue.isEmpty() && currentRider < maxRider) {
-            Visitor v = normalQueue.poll();
-            currentCycleRiders.add(v);
-            addToRideHistory(v); // 加入游玩历史
-            currentRider++;
+        // 优先队列取完后，从普通队列取
+        while (!normalQueue.isEmpty() && ridersThisCycle < maxRider) {
+            addVisitorToHistory(normalQueue.poll());
+            ridersThisCycle++;
         }
 
-        // 输出本周期运行信息
-        System.out.println("\n【" + rideName + " 第" + numOfCycles + "周期运行】");
-        System.out.println("运行时长：" + cycleDuration);
-        System.out.println("本周期载客：" + currentRider + "人（最大：" + maxRider + "人）");
-        if (!currentCycleRiders.isEmpty()) {
-            System.out.println("乘客列表：");
-            for (Visitor v : currentCycleRiders) {
-                System.out.println("  - " + v.getName() + "（" + v.getTicketType() + "）");
+        numOfCycles++; // 周期数+1
+        System.out.println(rideName + " 第 " + numOfCycles + " 周期运行完成！本次搭载 " + ridersThisCycle + " 人。");
+    }
+
+    // ------------------------------ Part6：导出游玩历史到文件（优化CSV格式） ------------------------------
+    public void exportRideHistory(String filePath) {
+        if (rideHistory.isEmpty()) {
+            System.out.println("导出失败：" + rideName + " 暂无游玩历史！");
+            return;
+        }
+
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
+            // 写入CSV表头
+            writer.write("访客ID,姓名,年龄,门票类型,访问日期,游玩消费(元),游玩时长");
+            writer.newLine();
+            // 遍历游玩历史，按CSV格式写入文件
+            for (Visitor visitor : rideHistory) {
+                String line = String.join(",",
+                        visitor.getId(),
+                        visitor.getName(),
+                        String.valueOf(visitor.getAge()),
+                        visitor.getTicketType(),
+                        visitor.getVisitDate(),
+                        String.valueOf(visitor.getRideCost()),
+                        visitor.getRideDuration()
+                );
+                writer.write(line);
+                writer.newLine();
             }
-        } else {
-            System.out.println("本周期无乘客！");
+            System.out.println("游玩历史已成功导出到：" + filePath);
+        } catch (IOException e) {
+            System.out.println("导出失败：" + e.getMessage());
         }
     }
+
+    // ------------------------------ Part7：从文件导入游玩历史（增强数据校验） ------------------------------
+    public void importRideHistory(String filePath) {
+        File file = new File(filePath);
+        if (!file.exists()) {
+            System.out.println("导入失败：文件 " + filePath + " 不存在！");
+            return;
+        }
+
+        int importedCount = 0;
+        int invalidCount = 0;
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            reader.readLine(); // 跳过表头
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty()) continue;
+
+                // 按逗号分割CSV数据
+                String[] parts = line.split(",");
+                if (parts.length != 7) {
+                    invalidCount++;
+                    System.out.println("跳过无效数据行（字段数错误）：" + line);
+                    continue;
+                }
+
+                try {
+                    // 解析数据并校验
+                    String id = parts[0];
+                    String name = parts[1];
+                    int age = Integer.parseInt(parts[2]);
+                    String ticketType = parts[3];
+                    String visitDate = parts[4];
+                    double rideCost = Double.parseDouble(parts[5]);
+                    String rideDuration = parts[6];
+
+                    // 校验日期格式
+                    LocalDate.parse(visitDate);
+                    // 校验门票类型
+                    List<String> validTickets = Arrays.asList("儿童票", "学生票", "成人票", "老人票", "年卡", "通票");
+                    if (!validTickets.contains(ticketType)) {
+                        throw new IllegalArgumentException("门票类型无效");
+                    }
+
+                    // 创建Visitor对象并添加到历史
+                    Visitor visitor = new Visitor(id, name, age, ticketType, visitDate, rideCost, rideDuration);
+                    rideHistory.add(visitor);
+                    importedCount++;
+                } catch (NumberFormatException e) {
+                    invalidCount++;
+                    System.out.println("跳过无效数据行（数字格式错误）：" + line);
+                } catch (DateTimeParseException e) {
+                    invalidCount++;
+                    System.out.println("跳过无效数据行（日期格式错误）：" + line);
+                } catch (IllegalArgumentException e) {
+                    invalidCount++;
+                    System.out.println("跳过无效数据行（" + e.getMessage() + "）：" + line);
+                }
+            }
+            System.out.println("导入完成！共导入 " + importedCount + " 条有效记录，跳过 " + invalidCount + " 条无效记录。");
+        } catch (IOException e) {
+            System.out.println("导入失败：" + e.getMessage());
+        }
+    }
+
+    // 重写toString()方法
+    @Override
+    public String toString() {
+        String operatorInfo = (operator != null) ? operator.getName() : "未分配";
+        return "设施ID: " + rideId + ", 设施名称: " + rideName + ", 最大承载量: " + maxCapacity +
+                ", 操作员: " + operatorInfo + ", 已运行周期: " + numOfCycles + ", 状态: " + status;
+    }
+}
